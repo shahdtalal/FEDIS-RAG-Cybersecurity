@@ -3,19 +3,24 @@ import os
 from dotenv import load_dotenv
 from groq import Groq
 
+
 load_dotenv()
+
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 if not GROQ_API_KEY:
-    raise ValueError("GROQ_API_KEY is not set in the environment variables.")
+    raise ValueError(
+        "GROQ_API_KEY is not set in the environment variables."
+    )
 
-client = Groq(api_key=GROQ_API_KEY)
+
+client = Groq(
+    api_key=GROQ_API_KEY
+)
 
 
 # Models are ordered by priority.
-# If the primary model fails because of a retryable
-# limit/error, the next model can be attempted.
 MODELS = [
     "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant",
@@ -28,27 +33,39 @@ You are a helpful cybersecurity tutor.
 Your job is to help the user understand cybersecurity questions
 and concepts clearly.
 
-When a verified answer from the application's dataset is provided,
-treat that answer as the ground-truth answer.
+The application retrieves up to three potentially relevant
+question-and-answer pairs from a verified cybersecurity dataset.
 
-Do not replace the verified answer with a different answer.
+Use the retrieved results as your primary source when they are
+relevant to the user's question.
 
-Explain why the verified answer is correct in a clear and
-student-friendly way.
+The answer stored in the dataset is a verified answer.
+
+If one of the retrieved results directly answers the user's
+question, use that answer as the ground-truth answer.
+
+Do not change a verified dataset answer into a different answer.
+
+You may explain the verified answer in your own words so that
+the user can understand why it is correct.
+
+If multiple retrieved results are relevant, use them together
+to determine the best response.
+
+If none of the retrieved results is relevant to the user's
+question, answer using your general knowledge.
 
 If the user asks a follow-up question, use the conversation
-context to answer it naturally.
+history to understand the context and answer naturally.
 
-If the retrieved information does not contain a verified answer,
-answer the user's question using your general knowledge while
-clearly avoiding unsupported claims.
+Do not mention the retrieval process, similarity distances,
+ChromaDB, or internal implementation details to the user.
 """
 
 
 def generate_answer(
     user_question: str,
-    retrieved_question: str | None = None,
-    correct_answer: str | None = None,
+    retrieved_results: list | None = None,
     conversation_history: list | None = None,
 ) -> str:
 
@@ -59,29 +76,56 @@ def generate_answer(
         }
     ]
 
-    # Add previous conversation if it exists
+    # Add previous conversation if available
     if conversation_history:
         messages.extend(conversation_history)
 
     # Build the current user message
-    if retrieved_question and correct_answer:
+
+    if retrieved_results:
+
+        retrieved_context = ""
+
+        for index, result in enumerate(
+            retrieved_results,
+            start=1
+        ):
+
+            retrieved_context += f"""
+Result {index}:
+
+ID: {result["id"]}
+
+Question:
+{result["question"]}
+
+Verified Answer:
+{result["answer"]}
+
+Similarity Distance:
+{result["distance"]}
+"""
 
         user_message = f"""
 The user asked:
 
 {user_question}
 
-A relevant question was found in our verified dataset:
+Here are the top retrieved results from the verified
+cybersecurity dataset:
 
-{retrieved_question}
+{retrieved_context}
 
-The verified correct answer from the dataset is:
+Determine which retrieved result or results are relevant
+to the user's question.
 
-{correct_answer}
+If a retrieved result directly answers the question, use
+its verified answer as the answer.
 
-Explain this answer to the user.
+Then provide a clear and educational explanation for the user.
 
-Make the explanation clear and educational.
+If none of the retrieved results is relevant, answer the
+question using your general knowledge.
 """
 
     else:
@@ -91,10 +135,10 @@ The user asked:
 
 {user_question}
 
-No verified answer for this question was found
-in our dataset.
+No relevant verified answer was retrieved from the dataset.
 
-Answer the user's question using your knowledge.
+Answer the user's question using your general knowledge
+and provide a clear educational explanation.
 """
 
     messages.append(
@@ -104,10 +148,12 @@ Answer the user's question using your knowledge.
         }
     )
 
-    # Try the models in order
+    # Try the configured models
+
     for model in MODELS:
 
         try:
+
             response = client.chat.completions.create(
                 model=model,
                 messages=messages,
@@ -117,9 +163,10 @@ Answer the user's question using your knowledge.
 
         except Exception as error:
 
-            print(f"Model {model} failed: {error}")
+            print(
+                f"Model {model} failed: {error}"
+            )
 
-            # Try the next model
             continue
 
     raise RuntimeError(

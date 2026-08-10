@@ -3,3 +3,6 @@ python-dotenv
 groq
 fastapi
 uvicorn
+chromadb
+sentence_transformers
+torch
