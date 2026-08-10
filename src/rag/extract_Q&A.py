@@ -4,7 +4,6 @@ import os
 import pandas as pd
 from dotenv import load_dotenv
 
-
 load_dotenv()
 
 INPUT_FILE = os.getenv("INPUT_FILE_PATH")
@@ -38,7 +37,7 @@ def main():
     print(df.head())
     print(f"\nTotal questions: {len(df)}")
 
-    df.to_pickle(OUTPUT_FILE)
+    df.to_csv(OUTPUT_FILE, index=False, encoding="utf-8")
 
     print(f"Saved to: {OUTPUT_FILE}")
 
