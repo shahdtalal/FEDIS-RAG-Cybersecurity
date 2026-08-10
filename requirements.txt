@@ -1,2 +1,5 @@
 pandas
 python-dotenv
+groq
+fastapi
+uvicorn
