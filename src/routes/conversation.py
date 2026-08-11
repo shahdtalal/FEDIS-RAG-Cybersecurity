@@ -1,68 +1,70 @@
-import uuid
-
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Request, Response
 
 from src.db.history_service import (
     create_conversation,
     close_conversation,
-    get_conversation,
 )
 
 
 router = APIRouter(
-    prefix="/conversations",
-    tags=["Conversations"],
+    prefix="/conversation",
+    tags=["Conversation"],
 )
 
 
-class ConversationResponse(BaseModel):
-    conversation_id: str
-    status: str
+@router.post("/new")
+def new_conversation(
+    request: Request,
+    response: Response,
+):
+    """
+    Close the current conversation, if one exists,
+    then create a new conversation.
+    """
 
+    old_conversation_id = request.cookies.get(
+        "conversation_id"
+    )
 
-@router.post("", response_model=ConversationResponse)
-def start_conversation():
+    # Close the old conversation
+    if old_conversation_id:
+        close_conversation(old_conversation_id)
 
-    conversation_id = str(uuid.uuid4())
+    # Create a new conversation
+    new_conversation_id = create_conversation()
 
-    create_conversation(conversation_id)
+    # Store the new ID in the browser cookie
+    response.set_cookie(
+        key="conversation_id",
+        value=new_conversation_id,
+        httponly=True,
+        samesite="lax",
+    )
 
     return {
-        "conversation_id": conversation_id,
-        "status": "active",
+        "message": "New conversation created",
     }
 
 
-@router.post(
-    "/{conversation_id}/close",
-    response_model=ConversationResponse,
-)
-def close_chat(conversation_id: str):
+@router.post("/end")
+def end_conversation(
+    request: Request,
+    response: Response,
+):
+    """
+    Close the current conversation, if one exists,
+    and clear the conversation cookie.
+    """
 
-    conversation = get_conversation(conversation_id)
+    conversation_id = request.cookies.get(
+        "conversation_id"
+    )
 
-    if not conversation:
-        raise HTTPException(
-            status_code=404,
-            detail="Conversation not found.",
-        )
+    if conversation_id:
+        close_conversation(conversation_id)
 
-    if conversation.get("status") == "closed":
-        return {
-            "conversation_id": conversation_id,
-            "status": "closed",
-        }
-
-    closed = close_conversation(conversation_id)
-
-    if not closed:
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to close conversation.",
-        )
+    response.delete_cookie("conversation_id")
 
     return {
-        "conversation_id": conversation_id,
-        "status": "closed",
+        "message": "Conversation ended",
     }
