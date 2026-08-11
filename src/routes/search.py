@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from src.retrieval.retriever import search_question
+from retrieval.retriever import search_question
 from src.services.groq_services import generate_answer
 
 
