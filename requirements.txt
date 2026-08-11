@@ -6,3 +6,4 @@ uvicorn
 chromadb
 sentence_transformers
 torch
+pymongo
