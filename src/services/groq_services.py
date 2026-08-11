@@ -9,15 +9,20 @@ load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-if not GROQ_API_KEY:
-    raise ValueError(
-        "GROQ_API_KEY is not set in the environment variables."
-    )
+_client = None
 
 
-client = Groq(
-    api_key=GROQ_API_KEY
-)
+def _get_client() -> Groq:
+    global _client
+
+    if _client is None:
+        if not GROQ_API_KEY:
+            raise ValueError(
+                "GROQ_API_KEY is not set in the environment variables."
+            )
+        _client = Groq(api_key=GROQ_API_KEY)
+
+    return _client
 
 
 # Models are ordered by priority.
@@ -149,6 +154,7 @@ and provide a clear educational explanation.
     )
 
     # Try the configured models
+    client = _get_client()
 
     for model in MODELS:
 

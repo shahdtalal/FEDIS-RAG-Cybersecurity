@@ -1,9 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from retrieval.retriever import search_question
-from src.services.groq_services import generate_answer
-
 
 router = APIRouter()
 
@@ -14,6 +11,8 @@ class SearchRequest(BaseModel):
 
 @router.post("/search")
 def search(request: SearchRequest):
+    from retrieval.retriever import search_question
+    from src.services.groq_services import generate_answer
 
     retrieved_results = search_question(
         question=request.question,

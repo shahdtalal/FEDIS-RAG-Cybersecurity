@@ -2,7 +2,6 @@ import os
 
 import chromadb
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
 
 load_dotenv()
 
@@ -23,21 +22,21 @@ EMBEDDING_MODEL = os.getenv(
 )
 
 
-# Load the SAME embedding model used to generate
-# the dataset embeddings.
-model = SentenceTransformer(EMBEDDING_MODEL)
+_model = None
+_collection = None
 
 
-# Connect to ChromaDB
-client = chromadb.PersistentClient(
-    path=CHROMA_DB_PATH
-)
+def _get_resources():
+    global _model, _collection
 
+    if _collection is None:
+        from sentence_transformers import SentenceTransformer
 
-# Get the existing collection
-collection = client.get_collection(
-    name=COLLECTION_NAME
-)
+        _model = SentenceTransformer(EMBEDDING_MODEL)
+        client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
+        _collection = client.get_collection(name=COLLECTION_NAME)
+
+    return _model, _collection
 
 
 def search_question(
@@ -55,14 +54,13 @@ def search_question(
     if not question or not question.strip():
         return []
 
-    # Generate an embedding for the user's question
-    # using the same model used during ingestion.
+    model, collection = _get_resources()
+
     query_embedding = model.encode(
         [question],
         convert_to_numpy=True,
     )
 
-    # Perform similarity search in ChromaDB.
     results = collection.query(
         query_embeddings=query_embedding.tolist(),
         n_results=top_k,
@@ -79,7 +77,6 @@ def search_question(
     matches = []
 
     for i in range(len(results["ids"][0])):
-
         metadata = results["metadatas"][0][i]
 
         matches.append(
