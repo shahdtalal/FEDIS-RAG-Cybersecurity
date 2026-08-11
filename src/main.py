@@ -2,11 +2,13 @@ from fastapi import FastAPI
 
 from src.routes.health import router as health_router
 from src.routes.search import router as search_router
+from src.routes.search_split import router as search_split_router
 
 app = FastAPI(title="FEDIS RAG Cybersecurity API")
 
 app.include_router(health_router)
 app.include_router(search_router)
+app.include_router(search_split_router)
 
 
 @app.get("/")
