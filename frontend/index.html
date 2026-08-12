@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CYFEDIS — Cybersecurity Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <canvas id="particleCanvas" aria-hidden="true"></canvas>
+  <div class="orb orb--1"></div>
+  <div class="orb orb--2"></div>
+  <div class="orb orb--3"></div>
+  <div class="bg-grid"></div>
+  <div class="scan-line" aria-hidden="true"></div>
+
+  <header class="header animate-in">
+    <div class="header__brand">
+      <div class="logo">
+        <span class="logo__ring"></span>
+        <span class="logo__icon">⬡</span>
+        <span class="logo__text">CYFEDIS</span>
+      </div>
+      <p class="header__tagline">Cybersecurity Intelligence Assistant</p>
+    </div>
+    <div class="header__meta">
+      <div class="engine-pill hidden" id="enginePill">
+        <span class="engine-pill__dot"></span>
+        <span id="engineLabel">Loading AI engine…</span>
+      </div>
+      <div class="chat-pill chat-pill--idle" id="chatPill">
+        <span class="chat-pill__dot"></span>
+        <span id="chatLabel">No active chat</span>
+      </div>
+      <div class="header__status" id="systemStatus">
+        <span class="status-dot"></span>
+        <span class="status-label">Checking systems…</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="hero animate-in animate-in--delay-1">
+      <div class="hero__badge">AI · RAG · MongoDB Chat</div>
+      <h1>Ask anything about <span class="gradient-text">cybersecurity</span></h1>
+      <p class="hero__sub">Start a chat session to keep conversation context saved in MongoDB.</p>
+    </section>
+
+    <section class="chat-panel animate-in animate-in--delay-2">
+      <div class="chat-toolbar">
+        <div class="chat-toolbar__left">
+          <button class="btn btn--accent" id="startChatBtn" type="button">
+            <span>＋</span> Start Chat
+          </button>
+          <button class="btn btn--danger-ghost hidden" id="endChatBtn" type="button">
+            <span>✕</span> End Chat
+          </button>
+        </div>
+        <div class="mode-tabs" role="tablist">
+          <button class="mode-tab active" data-mode="full" role="tab" aria-selected="true">Full</button>
+          <button class="mode-tab" data-mode="answer" role="tab" aria-selected="false">Answer</button>
+          <button class="mode-tab" data-mode="results" role="tab" aria-selected="false">Sources</button>
+        </div>
+      </div>
+
+      <div class="chat-messages" id="chatMessages">
+        <div class="chat-welcome" id="chatWelcome">
+          <div class="empty-state__orbit"><span class="empty-state__icon">⬡</span></div>
+          <h3>Start a chat to begin</h3>
+          <p>Click <strong>Start Chat</strong> — your messages will be saved and used as context for follow-up questions.</p>
+        </div>
+      </div>
+
+      <div class="loading-panel loading-panel--inline hidden" id="loadingPanel">
+        <div class="loading-inline">
+          <span class="btn__loader"></span>
+          <span id="loadingTitle">Thinking…</span>
+          <span class="loading-panel__timer"><span id="elapsedTime">0.0s</span></span>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+
+      <div class="input-area">
+        <textarea
+          id="questionInput"
+          placeholder="Start a chat first, then ask your question…"
+          rows="2"
+          maxlength="1000"
+          disabled
+        ></textarea>
+        <div class="input-footer">
+          <span class="char-count"><span id="charCount">0</span> / 1000</span>
+          <div class="input-actions">
+            <button class="btn btn--ghost" id="clearBtn" type="button" disabled>Clear</button>
+            <button class="btn btn--primary" id="submitBtn" type="button" disabled>
+              <span class="btn__text">Send</span>
+              <span class="btn__loader hidden"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="suggestions">
+        <span class="suggestions__label">Try:</span>
+        <button class="chip" data-question="What is phishing?">Phishing</button>
+        <button class="chip" data-question="Explain SQL injection">SQL injection</button>
+        <button class="chip" data-question="What is ransomware?">Ransomware</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer animate-in animate-in--delay-3">
+    <p>CYFEDIS · ChromaDB · Groq · MongoDB</p>
+  </footer>
+
+  <div class="toast hidden" id="toast"></div>
+
+  <script src="/js/particles.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

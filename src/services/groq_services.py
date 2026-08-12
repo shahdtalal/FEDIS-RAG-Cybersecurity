@@ -29,11 +29,10 @@ def _get_client() -> Groq:
     return _client
 
 
-# Models are ordered by priority.
-# If the first model fails, the next model is attempted.
+# Models are ordered by priority — fast model first for quicker responses.
 MODELS = [
-    "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant",
+    "llama-3.3-70b-versatile",
 ]
 
 
@@ -180,6 +179,8 @@ and provide a clear educational explanation.
             response = client.chat.completions.create(
                 model=model,
                 messages=messages,
+                max_tokens=600,
+                temperature=0.3,
             )
 
             return response.choices[0].message.content

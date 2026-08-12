@@ -1,4 +1,5 @@
 import os
+import threading
 
 import chromadb
 from dotenv import load_dotenv
@@ -24,18 +25,66 @@ EMBEDDING_MODEL = os.getenv(
 
 _model = None
 _collection = None
+_query_cache = {}
+_ready = False
+_loading = False
+_load_lock = threading.Lock()
+
+
+def is_ready() -> bool:
+    return _ready
+
+
+def start_warmup() -> str:
+    global _loading
+
+    if _ready:
+        return "ready"
+
+    with _load_lock:
+        if _ready:
+            return "ready"
+        if _loading:
+            return "loading"
+
+        _loading = True
+        threading.Thread(
+            target=_load_resources,
+            daemon=True,
+        ).start()
+        return "loading"
+
+
+def _load_resources():
+    global _model, _collection, _ready, _loading
+
+    try:
+        from sentence_transformers import SentenceTransformer
+
+        model = SentenceTransformer(EMBEDDING_MODEL)
+        client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
+        collection = client.get_collection(name=COLLECTION_NAME)
+
+        with _load_lock:
+            _model = model
+            _collection = collection
+            _ready = True
+    finally:
+        with _load_lock:
+            _loading = False
 
 
 def _get_resources():
-    global _model, _collection
+    if _ready:
+        return _model, _collection
 
-    if _collection is None:
-        from sentence_transformers import SentenceTransformer
+    start_warmup()
 
-        _model = SentenceTransformer(EMBEDDING_MODEL)
-        client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-        _collection = client.get_collection(name=COLLECTION_NAME)
+    with _load_lock:
+        if _ready:
+            return _model, _collection
 
+    _load_resources()
     return _model, _collection
 
 
@@ -43,16 +92,12 @@ def search_question(
     question: str,
     top_k: int = 3,
 ):
-    """
-    Search ChromaDB for the top-k most similar
-    question + answer records.
-
-    Returns:
-        A list containing the top matching records.
-    """
-
     if not question or not question.strip():
         return []
+
+    cache_key = (question.strip().lower(), top_k)
+    if cache_key in _query_cache:
+        return _query_cache[cache_key]
 
     model, collection = _get_resources()
 
@@ -88,4 +133,5 @@ def search_question(
             }
         )
 
+    _query_cache[cache_key] = matches
     return matches

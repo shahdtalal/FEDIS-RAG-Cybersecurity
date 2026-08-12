@@ -6,6 +6,8 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from groq import Groq
 
+from src.db.mongo_connection_test import check_mongo
+
 load_dotenv()
 
 router = APIRouter()
@@ -44,10 +46,12 @@ def check_groq() -> dict:
 def health():
     chroma_status = check_chroma()
     groq_status = check_groq()
+    mongo_status = check_mongo()
 
     all_ok = (
         chroma_status["status"] == "ok"
         and groq_status["status"] == "ok"
+        and mongo_status["status"] == "ok"
     )
 
     payload = {
@@ -55,8 +59,24 @@ def health():
         "services": {
             "chroma": chroma_status,
             "groq": groq_status,
+            "mongo": mongo_status,
         },
     }
 
     status_code = 200 if all_ok else 503
     return JSONResponse(content=payload, status_code=status_code)
+
+
+@router.get("/warmup")
+def warmup():
+    from retrieval.retriever import is_ready, start_warmup
+
+    status = start_warmup()
+
+    if status == "ready" or is_ready():
+        return {"status": "ready", "message": "Embedding model loaded"}
+
+    return {
+        "status": "loading",
+        "message": "Embedding model is loading in background",
+    }

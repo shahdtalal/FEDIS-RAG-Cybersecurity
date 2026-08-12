@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from src.db.history_service import (
     create_conversation,
     close_conversation,
 )
+from src.db.mongo_connection_test import check_mongo
 
 
 router = APIRouter(
@@ -12,38 +13,49 @@ router = APIRouter(
 )
 
 
+def _ensure_mongo():
+    mongo_status = check_mongo()
+    if mongo_status["status"] != "ok":
+        raise HTTPException(
+            status_code=503,
+            detail=mongo_status["message"],
+        )
+
+
 @router.post("/new")
 def new_conversation(
     request: Request,
     response: Response,
 ):
-    """
-    Close the current conversation, if one exists,
-    then create a new conversation.
-    """
+    _ensure_mongo()
 
-    old_conversation_id = request.cookies.get(
-        "conversation_id"
-    )
+    try:
+        old_conversation_id = request.cookies.get("conversation_id")
 
-    # Close the old conversation
-    if old_conversation_id:
-        close_conversation(old_conversation_id)
+        if old_conversation_id:
+            close_conversation(old_conversation_id)
 
-    # Create a new conversation
-    new_conversation_id = create_conversation()
+        new_conversation_id = create_conversation()
 
-    # Store the new ID in the browser cookie
-    response.set_cookie(
-        key="conversation_id",
-        value=new_conversation_id,
-        httponly=True,
-        samesite="lax",
-    )
+        response.set_cookie(
+            key="conversation_id",
+            value=new_conversation_id,
+            httponly=True,
+            samesite="lax",
+        )
 
-    return {
-        "message": "New conversation created",
-    }
+        return {
+            "message": "New conversation created",
+            "status": "active",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Could not start chat: {error}",
+        ) from error
 
 
 @router.post("/end")
@@ -51,20 +63,25 @@ def end_conversation(
     request: Request,
     response: Response,
 ):
-    """
-    Close the current conversation, if one exists,
-    and clear the conversation cookie.
-    """
+    _ensure_mongo()
 
-    conversation_id = request.cookies.get(
-        "conversation_id"
-    )
+    try:
+        conversation_id = request.cookies.get("conversation_id")
 
-    if conversation_id:
-        close_conversation(conversation_id)
+        if conversation_id:
+            close_conversation(conversation_id)
 
-    response.delete_cookie("conversation_id")
+        response.delete_cookie("conversation_id")
 
-    return {
-        "message": "Conversation ended",
-    }
+        return {
+            "message": "Conversation ended",
+            "status": "closed",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Could not end chat: {error}",
+        ) from error
