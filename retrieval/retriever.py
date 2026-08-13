@@ -1,90 +1,89 @@
 import os
-import threading
 
 import chromadb
 from dotenv import load_dotenv
+from sentence_transformers import SentenceTransformer
 
 load_dotenv()
 
 
 CHROMA_DB_PATH = os.getenv(
     "CHROMA_DB_PATH",
-    "./chroma_db"
+    "./chroma_db",
 )
 
 COLLECTION_NAME = os.getenv(
     "CHROMA_COLLECTION_NAME",
-    "cybersecurity_qa"
+    "cybersecurity_qa",
 )
 
 EMBEDDING_MODEL = os.getenv(
     "EMBEDDING_MODEL",
-    "BAAI/bge-large-en-v1.5"
+    "BAAI/bge-large-en-v1.5",
 )
 
 
 _model = None
 _collection = None
 _query_cache = {}
-_ready = False
-_loading = False
-_load_lock = threading.Lock()
-
-
-def is_ready() -> bool:
-    return _ready
 
 
 def start_warmup() -> str:
-    global _loading
+    """
+    Load the embedding model and ChromaDB collection once.
+    """
 
-    if _ready:
+    global _model, _collection
+
+    # Already loaded
+    if _model is not None and _collection is not None:
         return "ready"
 
-    with _load_lock:
-        if _ready:
-            return "ready"
-        if _loading:
-            return "loading"
+    print("Loading embedding model...")
 
-        _loading = True
-        threading.Thread(
-            target=_load_resources,
-            daemon=True,
-        ).start()
-        return "loading"
+    _model = SentenceTransformer(
+        EMBEDDING_MODEL
+    )
+
+    print("Embedding model loaded.")
+
+    print("Connecting to ChromaDB...")
+
+    client = chromadb.PersistentClient(
+        path=CHROMA_DB_PATH
+    )
+
+    _collection = client.get_collection(
+        name=COLLECTION_NAME
+    )
+
+    print(
+        f"ChromaDB collection '{COLLECTION_NAME}' loaded."
+    )
+
+    return "ready"
 
 
-def _load_resources():
-    global _model, _collection, _ready, _loading
+def is_ready() -> bool:
+    """
+    Return True when the embedding model and
+    ChromaDB collection are ready.
+    """
 
-    try:
-        from sentence_transformers import SentenceTransformer
-
-        model = SentenceTransformer(EMBEDDING_MODEL)
-        client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-        collection = client.get_collection(name=COLLECTION_NAME)
-
-        with _load_lock:
-            _model = model
-            _collection = collection
-            _ready = True
-    finally:
-        with _load_lock:
-            _loading = False
+    return (
+        _model is not None
+        and _collection is not None
+    )
 
 
 def _get_resources():
-    if _ready:
-        return _model, _collection
+    """
+    Return the already-loaded model and collection.
+    """
 
-    start_warmup()
+    if not is_ready():
+        start_warmup()
 
-    with _load_lock:
-        if _ready:
-            return _model, _collection
-
-    _load_resources()
     return _model, _collection
 
 
@@ -92,20 +91,31 @@ def search_question(
     question: str,
     top_k: int = 3,
 ):
+    """
+    Search ChromaDB for the top-k most similar
+    cybersecurity Q&A records.
+    """
+
     if not question or not question.strip():
         return []
 
-    cache_key = (question.strip().lower(), top_k)
+    cache_key = (
+        question.strip().lower(),
+        top_k,
+    )
+
     if cache_key in _query_cache:
         return _query_cache[cache_key]
 
     model, collection = _get_resources()
 
+    # Generate embedding for the user's question
     query_embedding = model.encode(
         [question],
         convert_to_numpy=True,
     )
 
+    # Search ChromaDB
     results = collection.query(
         query_embeddings=query_embedding.tolist(),
         n_results=top_k,
@@ -122,6 +132,7 @@ def search_question(
     matches = []
 
     for i in range(len(results["ids"][0])):
+
         metadata = results["metadatas"][0][i]
 
         matches.append(
@@ -134,4 +145,5 @@ def search_question(
         )
 
     _query_cache[cache_key] = matches
+
     return matches
